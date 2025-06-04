@@ -1,0 +1,49 @@
+name: Deploy React Tezkor-online-dispatchers to Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Deploy to Remote Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd /home/tezkor-online-dispatchers-react
+
+            echo "🌀 Git pull..."
+            git reset --hard HEAD
+            git pull origin main
+
+            echo "📦 Installing dependencies..."
+            npm install
+
+            echo "⚙️ Building project..."
+            npm run build
+
+             
+            docker compose down
+            docker compose up -d --build
+
+      - name: Notify on Telegram
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -d text="✅ Tezkor Online dispatchers React Web muvaffaqiyatli *main* branchdan deploy qilindi! Kirib tekshring! 👉 https://dispatchers.tezkor-online.uz/ "
+
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID_2 }} \
+            -d text="✅ Tezkor Online dispatchers React Web muvaffaqiyatli *main* branchdan deploy qilindi! Kirib tekshring! 👉 https://dispatchers.tezkor-online.uz/ "
