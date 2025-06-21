@@ -1,0 +1,54 @@
+name: Deploy React Tezkor-online-dispatchers to Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Deploy to Remote Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd /home/tezkor-online-courier-react-web
+
+            echo "🌀 Git pull..."
+            git reset --hard HEAD
+            git pull origin main
+
+            echo "📦 Installing dependencies..."
+            npm install
+
+            echo "⚙️ Building project..."
+            npm run build
+
+            echo "📦 Restarting docker..."
+            docker compose down
+            docker compose up -d --build
+
+      - name: Notify on Telegram
+        if: success()
+        run: |
+          set -x
+
+          TELEGRAM_TEXT="<b>@a_turgunboyeva</b> tomonidan Tezkor-online-dispatchers ning React Web versiyasi deploy qilindi! 👉 <a href='https://dispatchers.tezkor-online.uz/'>Web saytga o'tish</a> 👉 <a href='https://github.com/devituz/tezkor-online-dispatchers-react'>GitHub repoga o'tish</a>"
+
+          response=$(curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id=${{ secrets.TELEGRAM_GROUP_CHAT_ID }} \
+            -d message_thread_id=${{ secrets.TELEGRAM_TOPIC_ID }} \
+            --data-urlencode text="$TELEGRAM_TEXT" \
+            -d parse_mode=HTML)
+
+          echo "Telegram javobi:"
+          echo "$response"
